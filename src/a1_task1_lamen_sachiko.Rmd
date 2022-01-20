@@ -1,0 +1,61 @@
+---
+title: "Sierra Amphibians"
+author: "Sachiko Lamen"
+date: "1/19/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(here)
+library(patchwork)
+library(cowplot)
+library(readxl)
+library(reprex)
+```
+
+```{r}
+sierra_amph <- read_xlsx(here("data", "sierra_amphibians.xlsx"))
+
+yellow_frog_total <- sierra_amph %>%
+  separate(survey_date, c("Year")) %>%
+  group_by(amphibian_life_stage, Year) %>%
+  filter(amphibian_life_stage == c("Adult", "SubAdult", "Tadpole"), amphibian_species == "RAMU") %>%
+  summarize(count = n())
+```
+
+```{r}
+ggplot(data = yellow_frog_total, aes(x = Year, y = count, fill = factor(amphibian_life_stage))) +
+  geom_col(stat = "identity", position = "dodge", color = "black") +
+  labs(x = "Year",
+       y = "Count",
+       title = "Total mountain yellow-legged frog count") +
+  scale_fill_manual("Life Stage", values = c("darkgreen", "green", "yellow")) +
+  theme_minimal()
+```
+
+
+```{r}
+top_5_lakes <- sierra_amph %>%
+  filter(amphibian_species =="RAMU", amphibian_life_stage %in% c("Adult", "SubAdult")) %>%
+  select(lake_id) %>%
+  count(lake_id) %>%
+  slice_max(order_by = n, n = 5) %>%
+  mutate(lake_id = paste("Lake", lake_id, sep = ' ')) %>%
+  mutate(lake_id = fct_reorder(lake_id, n))
+
+ggplot(data = top_5_lakes, aes(x = n, y = lake_id)) +
+  geom_col(fill = "lightblue") +
+  labs(x = "Total Counts",
+       y = "Lake ID",
+       title = "Top 5 lakes with total combined adult and subadult counts of Rana muscosa (1995-2002)") +
+  theme_minimal()
+```
+
+
+
+
+
+
+
