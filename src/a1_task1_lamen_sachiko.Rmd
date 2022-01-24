@@ -14,10 +14,19 @@ library(cowplot)
 library(readxl)
 library(reprex)
 ```
+## **Introduction**
 
-```{r}
+This report explores data collected on endangered Mountain Yellow-legged frogs (Rana muscosa) by the Sierra Lakes Inventory Project (SLIP) from 1995-2002. Abundance of yellow-legged frogs was compared amongst life stage: adult, sub-adult, and tadpole. The life stage "egg mass" was not included for the purpose of this analysis.
+
+## **Analysis**
+
+This analysis filters the data for counts of Moutain Yellow-legged frogs by life stage (Adult, Sub-adult, and Tadpole) from 1995 - 2002 across Sierra Nevada Region. The second part of this analysis filters for the top five lakes with the highest total counts (combined adult and subadult) of yellow-legged frogs. Results are presented in a combined visualization.
+
+```{r, include = FALSE}
+# read in data
 sierra_amph <- read_xlsx(here("data", "sierra_amphibians.xlsx"))
 
+# filter data for yellow-legged frogs, adult, sub-adult, and tadpole, get total counts
 yellow_frog_total <- sierra_amph %>%
   separate(survey_date, c("Year")) %>%
   group_by(amphibian_life_stage, Year) %>%
@@ -25,8 +34,8 @@ yellow_frog_total <- sierra_amph %>%
   summarize(count = n())
 ```
 
-```{r}
-ggplot(data = yellow_frog_total, aes(x = Year, y = count, fill = factor(amphibian_life_stage))) +
+```{r, include = FALSE}
+p1 <- ggplot(data = yellow_frog_total, aes(x = Year, y = count, fill = factor(amphibian_life_stage))) +
   geom_col(stat = "identity", position = "dodge", color = "black") +
   labs(x = "Year",
        y = "Count",
@@ -36,23 +45,43 @@ ggplot(data = yellow_frog_total, aes(x = Year, y = count, fill = factor(amphibia
 ```
 
 
-```{r}
+```{r, include = FALSE}
 top_5_lakes <- sierra_amph %>%
   filter(amphibian_species =="RAMU", amphibian_life_stage %in% c("Adult", "SubAdult")) %>%
+  filter(amphibian_location == "in lake") %>%
   select(lake_id) %>%
   count(lake_id) %>%
   slice_max(order_by = n, n = 5) %>%
   mutate(lake_id = paste("Lake", lake_id, sep = ' ')) %>%
   mutate(lake_id = fct_reorder(lake_id, n))
 
-ggplot(data = top_5_lakes, aes(x = n, y = lake_id)) +
+p2 <- ggplot(data = top_5_lakes, aes(x = n, y = lake_id)) +
   geom_col(fill = "lightblue") +
   labs(x = "Total Counts",
        y = "Lake ID",
-       title = "Top 5 lakes with total combined adult and subadult counts of Rana muscosa (1995-2002)") +
-  theme_minimal()
+       title = "Top 5 lakes with total combined adult and subadult \n counts of Rana muscosa (1995-2002)") +
+  theme_minimal() +
+  theme(panel.grid.major = element_blank())
+
 ```
 
+```{r}
+patchwork <- p1 / p2 
+
+patchwork +
+  plot_annotation(tag_levels = c('1'), tag_prefix = 'Fig. ',
+                            tag_sep = '.', tag_suffix = ':')
+
+```
+
+
+**Figure 1:** Total count of observeed Mountain Yellow-legged Frogs across Sierra Nevada Region by life stage from 1995 - 2002.  Colored columns represent the observed life stage, yellow: tadpole, light green: sub-adult, dark green: adult. **Figure 2:** Top five lakes with the highest observed total counts of yellow-legged frogs (combined adult and sub-adult).
+
+Total counts of endangered Mountain Yellow-Legged Frogs have increased since 1995, with the highest numbers observed in 2002, the last year of this study. Figure 2 shows that there are relatively few frogs in each lake, as the top five lakes only contained between 7 - 10 frogs. 
+
+## **Citation** 
+
+*Knapp, R.A., C. Pavelka, E.E. Hegeman, and T.C. Smith. 2020. The Sierra Lakes Inventory Project: Non-Native fish and community composition of lakes and ponds in the Sierra Nevada, California ver 2. Environmental Data Initiative. https://doi.org/10.6073/pasta/d835832d7fd00d9e4466e44eea87fab3*
 
 
 
