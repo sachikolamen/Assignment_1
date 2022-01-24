@@ -1,0 +1,82 @@
+---
+title: "O2 Concentration in CA Seawater"
+author: "Sachiko Lamen"
+date: "1/23/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(here)
+library(AICcmodavg)
+```
+
+```{r}
+# Read in data
+seawater_samples <- read_csv(here("data", "calcofi_seawater_samples.csv"))
+```
+
+##**Introduction**
+
+##**Model Selection**
+
+```{r}
+# Model 1: linear regression of oxygen saturation as a function of water temperature, salinity, and phosphate concentration
+
+f1 <- o2sat ~ t_deg_c + salinity + po4u_m
+mdl1 <- lm(f1,data = seawater_samples)
+
+# Model 2: linear regression of oxygen saturation as a function of water temperature, salinity, phosphate concentration and depth
+f2 <- o2sat ~ t_deg_c + salinity + po4u_m +depth_m
+mdl2 <- lm(f2, data = seawater_samples)
+
+# Use AICc (because sample size is relatively small) to select the better model
+aictab(list(mdl1, mdl2))
+# mdl2 looks like the better model: ∆AIC is 2.42 meaning that mdl2 is is significantly better than mdl1 and AICcWt: 0.77 meaning that 77% of the weight of evidence suggests mdl2
+```
+##**K-fold Cross-Validation
+```{r}
+# Run 10-fold cross-validation on both models
+folds <- 10
+fold_vec <- rep(1:folds, length_out = nrow(seawater_samples))
+table(fold_vec)
+
+# Set a seed number for random number generation
+set.seed(13)
+
+# Add new column named 'group' that contains the samples from the fold_vec that has a sample size of the data frame (100)
+seawater_fold <- seawater_samples %>%
+  mutate(group = sample(fold_vec, size = n(), replace = FALSE))
+
+### First Fold
+test_df <- seawater_fold %>%
+  filter(group == 1)
+
+training_df <- seawater_fold %>%
+  filter(group != 1)
+
+# Create RMSE function in order to score models
+calc_rmse <- function(x,y) {rmse_result <- (x - y)^2 %>% mean() %>% sqrt()
+return(rmse_result)}
+
+# Use training dataset to create two linear regression models based on the formulas above
+
+```{r}
+training_mdl1 <- lm(f1, data = training_df)
+training_mdl2 <- lm(f2, data = training_df)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
