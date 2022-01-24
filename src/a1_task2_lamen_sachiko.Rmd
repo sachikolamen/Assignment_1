@@ -5,11 +5,13 @@ date: "1/23/2022"
 output: html_document
 ---
 
-```{r setup, include=FALSE, message = FALSE, warning = FALSE}
+```{r setup, include= TRUE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(here)
 library(AICcmodavg)
+library(equatiomatic)
+library(kableExtra)
 ```
 
 ```{r}
@@ -17,9 +19,10 @@ library(AICcmodavg)
 seawater_samples <- read_csv(here("data", "calcofi_seawater_samples.csv"))
 ```
 
-##**Introduction**
+## **Introduction**
+This analysis uses a subset (n = 100)  data from the CalCOFI hydrographic time-series taken off the California coast from 1949 - 2019. The purpose of the study was to understand the relationship between chemical/physical variables and O2 concentration. This report will compare linear regression models that predict O2 concentration based on several variables. AIC and 10-fold cross validation are used to determine the model that best predicts oxygen saturation.
 
-##**Model Selection**
+## **Model Selection**
 
 ```{r}
 # Model 1: linear regression of oxygen saturation as a function of water temperature, salinity, and phosphate concentration
@@ -31,15 +34,29 @@ mdl1 <- lm(f1,data = seawater_samples)
 f2 <- o2sat ~ t_deg_c + salinity + po4u_m +depth_m
 mdl2 <- lm(f2, data = seawater_samples)
 
-# Use AICc (because sample size is relatively small) to select the better model
-aictab(list(mdl1, mdl2))
-# mdl2 looks like the better model: ∆AIC is 2.42 meaning that mdl2 is is significantly better than mdl1 and AICcWt: 0.77 meaning that 77% of the weight of evidence suggests mdl2
+# Model 3: linear regression of oxygen saturation as a funciton of water temperature, salinity, phosphate concentration, depth, and chlorophyll concentration
+f3 <- o2sat ~ t_deg_c + salinity + depth_m + chlor_a + po4u_m
+mdl3 <- lm(f3, data = seawater_samples)
+
+# Use AICc (because sample size is relatively small) to select the better model, push output into table 
+AIC <- data.frame() %>% 
+  summarize(aic_mdl1 = AICc(mdl1),
+            aic_mdl2 = AICc(mdl2),
+            aic_mdl3 = AICc(mdl3))
+
+AIC %>% 
+  kable(col.names = c("Model 1", "Model 2", "Model 3"), digits = 2) %>% 
+  kable_styling(bootstrap_options = "striped", 
+                position = "left", full_width = FALSE)
+
 ```
-##**K-fold Cross-Validation
+Model 3 (`mdl3`) looks like the better model: ∆AIC is >2 for both model 1 model 2, suggesting that model 3 is significantly better than the other two models. This is supported by the AICcWt of 0.92 for model 3.
+
+## **K-fold Cross-Validation**
 ```{r}
 # Run 10-fold cross-validation on both models
-folds <- 10
-fold_vec <- rep(1:folds, length_out = nrow(seawater_samples))
+folds <- 10 
+fold_vec <- rep(1:folds, length.out = nrow(seawater_samples)) 
 table(fold_vec)
 
 # Set a seed number for random number generation
@@ -49,30 +66,58 @@ set.seed(13)
 seawater_fold <- seawater_samples %>%
   mutate(group = sample(fold_vec, size = n(), replace = FALSE))
 
-### First Fold
-test_df <- seawater_fold %>%
-  filter(group == 1)
-
-training_df <- seawater_fold %>%
-  filter(group != 1)
-
 # Create RMSE function in order to score models
 calc_rmse <- function(x,y) {rmse_result <- (x - y)^2 %>% mean() %>% sqrt()
 return(rmse_result)}
 
-# Use training dataset to create two linear regression models based on the formulas above
+## Calculate RMSE over all folds and take the average (using a for-loop)
+# Set up blank data frame
+rmse_df <- data.frame()
+
+# Run for-loop
+for(i in 1:folds) {
+  kfold_test_df <- seawater_fold %>%
+    filter(group == i)
+  kfold_train_df <- seawater_fold %>%
+    filter(group != i)
+  
+  kfold_mdl1 <- lm(f1, data = kfold_train_df)
+  kfold_mdl2 <- lm(f2, data = kfold_train_df)
+  kfold_mdl3 <- lm(f3, data = kfold_train_df)
+  
+  kfold_pred_df <- kfold_test_df %>%
+    mutate(mdl1 = predict(kfold_mdl1, kfold_test_df),
+           mdl2 = predict(kfold_mdl2, .),
+           mdl3 = predict(kfold_mdl3,.))
+  kfold_rmse <- kfold_pred_df %>%
+    summarize(rmse_mdl1 = calc_rmse(mdl1, o2sat),
+              rmse_mdl2 = calc_rmse(mdl2, o2sat),
+              rmse_mdl3 = calc_rmse(mdl3, o2sat))
+  
+  rmse_df <- bind_rows(rmse_df, kfold_rmse) # this will add new row on bottom of data frame each time through the loop
+}
+
+rmse_summary <- rmse_df %>%
+  summarise(mean_rmse_mdl1 = mean(rmse_mdl1),
+            mean_rmse_mdl2 = mean(rmse_mdl2),
+            mean_rmse_mdl3 = mean(rmse_mdl3))
+
+rmse_summary %>%
+    kable(col.names = c("Model 1", "Model 2", "Model 3"), digits = 3) %>% 
+  kable_styling(bootstrap_options = "striped", 
+                position = "left", full_width = FALSE)
+```
+After running a 10-fold cross validation, we find that model 3 is actually the worst at predicting o2sat and model 2 is th best (mean rmse for mdl2 = 4.86) This means that model 2 most accurately predicts the *actual* observed values for [O2] compared to the other models. 
 
 ```{r}
-training_mdl1 <- lm(f1, data = training_df)
-training_mdl2 <- lm(f2, data = training_df)
+# Train final model (`final_mdl`) based on `f2` formula
+final_mdl <- lm(f2, data = seawater_samples)
 
 ```
+Final Model: `r equatiomatic::extract_eq(final_mdl, wrap = TRUE, use_coefs = TRUE)`
 
-
-
-
-
-
+## **Citation**
+Data citation: CalCOFI data are available for use without restriction. Data downloaded from https://calcofi.org/ccdata.html.  Accessed 1/23/2022.
 
 
 
