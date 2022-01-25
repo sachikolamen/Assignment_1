@@ -45,7 +45,9 @@ AIC <- data.frame() %>%
             aic_mdl3 = AICc(mdl3))
 
 AIC %>% 
-  kable(col.names = c("Model 1", "Model 2", "Model 3"), digits = 2) %>% 
+  kable(col.names = c("Model 1", "Model 2", "Model 3"),
+        caption = " **Table 1. AIC Values** of potential linear regression models of oxygen saturation as a function of multiple variables. The independent variables used in each model are as follows Model 1: water temperature, salinity, and phosphate concentration, Model 2: water temperature, salinity, phosphate concentration and depth, Model 3: water temperature, salinity, phosphate concentration, depth, and chlorophyll a concentration ",
+        digits = 2) %>% 
   kable_styling(bootstrap_options = "striped", 
                 position = "left", full_width = FALSE)
 
@@ -54,10 +56,9 @@ Model 3 (`mdl3`) looks like the better model: ∆AIC is >2 for both model 1 mode
 
 ## **K-fold Cross-Validation**
 ```{r}
-# Run 10-fold cross-validation on both models
+# Run 10-fold cross-validation on all models
 folds <- 10 
 fold_vec <- rep(1:folds, length.out = nrow(seawater_samples)) 
-table(fold_vec)
 
 # Set a seed number for random number generation
 set.seed(13)
@@ -103,7 +104,9 @@ rmse_summary <- rmse_df %>%
             mean_rmse_mdl3 = mean(rmse_mdl3))
 
 rmse_summary %>%
-    kable(col.names = c("Model 1", "Model 2", "Model 3"), digits = 3) %>% 
+    kable(col.names = c("Model 1", "Model 2", "Model 3"),
+           caption = " **Table 2. RMSE Values** of potential linear regression models after running 10-fold cross-validation on all models.",
+          digits = 3) %>% 
   kable_styling(bootstrap_options = "striped", 
                 position = "left", full_width = FALSE)
 ```
